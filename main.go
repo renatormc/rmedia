@@ -18,7 +18,9 @@ func main() {
 	folderBurn := burnCmd.StringPositional(&argparse.Options{Help: "Folder to be burned", Default: "."})
 
 	zipCmd := parser.NewCommand("zip", "Zip folder")
-	folderZip := burnCmd.StringPositional(&argparse.Options{Help: "Folder to be compressed", Default: "."})
+	folderZip := zipCmd.StringPositional(&argparse.Options{Help: "Folder to be compressed", Default: "."})
+	maxSize := zipCmd.String("s", "max-size", &argparse.Options{Help: "Max size", Default: "dvd"})
+	compressLevel := zipCmd.Int("m", "compress-level", &argparse.Options{Help: "Compress level", Default: 3})
 
 	hashCmd := parser.NewCommand("hash", "Hash folder")
 	folderHash := hashCmd.StringPositional(&argparse.Options{Help: "Folder to be hashed", Default: "."})
@@ -44,7 +46,7 @@ func main() {
 	case burnCmd.Happened():
 		actions.Burn(*folderBurn)
 	case zipCmd.Happened():
-		actions.Zip(*folderZip)
+		actions.Zip(*folderZip, *maxSize, *compressLevel)
 	case hashCmd.Happened():
 		actions.Hash(*folderHash, *nWorkers)
 
