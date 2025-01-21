@@ -5,7 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"rmedia/config"
 	"rmedia/helpers"
+	"runtime"
 	"strings"
 
 	"github.com/dustin/go-humanize"
@@ -46,19 +48,20 @@ func getMaxSize(value string) uint64 {
 }
 
 func Compress7z(folder string, outputFolder string, maxSize string, compressLevel int) error {
-	cmd := exec.Command(
-		"7z", "a", fmt.Sprintf("-v%d", getMaxSize(maxSize)),
-		fmt.Sprintf("-mx%d", compressLevel),
-		// "-sfx7z.sfx",
-		filepath.Join(outputFolder, "dados.7z"),
-		folder,
-	)
+	fName := "dados.7z"
+	args := []string{"a", fmt.Sprintf("-v%d", getMaxSize(maxSize)), fmt.Sprintf("-mx%d", compressLevel)}
+	if runtime.GOOS == "windows" {
+		args = append(args, "-sfx7z.sfx")
+		fName = "dados.exe"
+	}
+	args = append(args, filepath.Join(outputFolder, fName), folder)
+	cmd := exec.Command(config.GetConfig().Exe7z, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-func Tutorial(nMedias int) string {
+func TutorialLinux(nMedias int) string {
 	if nMedias == 1 {
 		return "<h4>Copie o arquivo dados.7z.001 para um local de sua preferência e o descompacte utilizando o programa 7zip.</h4>"
 	}
@@ -69,4 +72,48 @@ func Tutorial(nMedias int) string {
 	aux := strings.Join(files, "\n")
 	text := fmt.Sprintf("<h4>Crie uma nova pasta em um local de sua preferência e copie todos os arquivos abaixo. Em seguida abra o arquivo dados.7z001 no programa 7zip e execute a descompactação.</h4><ul>%s</ul>", aux)
 	return text
+}
+
+func TutorialWindows(nMedias int) string {
+	if nMedias == 1 {
+		return "<h4>De dois cliques no arquivo dados.exe e descompacte para um local de sua preferência.</h4>"
+	}
+	files := []string{"<li>dados.exe</li>"}
+	for i := 0; i < nMedias; i++ {
+		files = append(files, fmt.Sprintf("<li>dados.7z.%03d</li>", i+1))
+	}
+	aux := strings.Join(files, "\n")
+	text := fmt.Sprintf("<h4>Crie uma nova pasta em um local de sua preferência e copie todos os arquivos abaixo, copiando de todas as mídias. Em seguida dê dos clique no arquivo dados.exe e execute a descompactação.</h4><ul>%s</ul>", aux)
+	return text
+}
+
+func Tutorial(nMedias int) string {
+	if runtime.GOOS == "windows" {
+		return TutorialWindows(nMedias)
+	}
+	return TutorialLinux(nMedias)
+
+}
+
+func OrganizeFolders(outFolder string) {
+	nFiles := helpers.CountFilesInDir(outFolder)
+	html := Tutorial(nFiles)
+	if nFiles == 1 {
+		helpers.CheckError(os.WriteFile(filepath.Join(outFolder, "intruções.html"), []byte(html), os.ModePerm))
+	} else {
+		for _, file := range helpers.Must(os.ReadDir(outFolder)) {
+			var mediaFolder string
+			if strings.HasSuffix(file.Name(), "exe") {
+				mediaFolder = filepath.Join(outFolder, "001")
+			} else {
+				mediaFolder = filepath.Join(outFolder, file.Name()[len(file.Name())-3:len(file.Name())])
+			}
+			if !helpers.DirectoryExists(mediaFolder) {
+				helpers.CheckError(os.Mkdir(mediaFolder, os.ModePerm))
+			}
+
+			helpers.CheckError(os.Rename(filepath.Join(outFolder, file.Name()), filepath.Join(mediaFolder, file.Name())))
+			helpers.CheckError(os.WriteFile(filepath.Join(mediaFolder, "intruções.html"), []byte(html), os.ModePerm))
+		}
+	}
 }

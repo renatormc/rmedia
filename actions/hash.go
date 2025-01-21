@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"rmedia/helpers"
+	"strings"
 	"sync"
 
 	"github.com/schollz/progressbar/v3"
@@ -41,10 +43,7 @@ func HashWorker(folder string, results chan<- HashResult, tasks <-chan string, w
 	defer wg.Done()
 	for task := range tasks {
 		res, err := HashFile(task)
-		relPath, err2 := filepath.Rel(folder, task)
-		if err2 != nil {
-			panic(err)
-		}
+		relPath := helpers.Must(filepath.Rel(folder, task))
 		results <- HashResult{Hash: res, Err: err, RelPath: relPath}
 	}
 }
@@ -76,15 +75,18 @@ func HashProgressor(folder string, total int64, results <-chan HashResult, wg *s
 	if err != nil {
 		panic(err)
 	}
-	defer file.Close()
+	defer func() {
+		file.Close()
+		wg.Done()
+	}()
 
 	writer := bufio.NewWriter(file)
 
 	bar := progressbar.Default(total)
-	defer wg.Done()
+
 	for res := range results {
 		if res.Err == nil {
-			_, err := writer.WriteString(fmt.Sprintf("%s %s\n", res.Hash, res.RelPath))
+			_, err := writer.WriteString(fmt.Sprintf("%s %s\n", res.Hash, strings.ReplaceAll(res.RelPath, "\\", "/")))
 			if err != nil {
 				panic(err)
 			}

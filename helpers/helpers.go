@@ -3,6 +3,7 @@ package helpers
 import (
 	"log"
 	"os"
+	"strings"
 )
 
 func Must[T any](value T, err error) T {
@@ -42,9 +43,25 @@ func CountFilesInDir(folder string) int {
 
 	count := 0
 	for _, file := range files {
-		if !file.IsDir() {
+		if !file.IsDir() && !strings.HasSuffix(file.Name(), "exe") {
 			count++
 		}
 	}
 	return count
+}
+
+func Map[T any, U any](input []T, fn func(T) U) []U {
+	output := make([]U, len(input))
+	for i, v := range input {
+		output[i] = fn(v)
+	}
+	return output
+}
+
+func KeyMap[T any, K comparable](input []T, fn func(T) K) map[K]T {
+	m := make(map[K]T)
+	for _, item := range input {
+		m[fn(item)] = item
+	}
+	return m
 }
